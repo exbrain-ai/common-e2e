@@ -7,7 +7,6 @@ export type { TestUser } from './fixtures/users.js';
 export { getTestUser, getTestUsers } from './fixtures/users.js';
 
 // Env
-export type { LoadE2eDotenvOptions } from './env/index.js';
 export { loadE2eDotenv, getBaseUrl, getIgnoreHttpErrors } from './env/index.js';
 
 // Helpers

@@ -1,52 +1,48 @@
 /**
  * Common e2e environment helpers shared across ExBrain test suites.
  *
- * Source of truth for local dev: **onebox/.env** (sibling directory).
- * In CI: env vars are injected directly; no .env file is read.
+ * Source of truth for local dev: **onebox/.env** (sibling of each test repo).
+ * In CI: env vars are injected directly; this function is a no-op.
+ *
+ * Each suite uses its own dedicated env var for the base URL:
+ *   HELLO_E2E_BASE_URL   — hello-e2e
+ *   EXBRAIN_E2E_BASE_URL — exbrain-e2e
  *
  * Usage in playwright.config.ts:
- *   import { loadE2eDotenv } from '@exbrain/common-e2e';
- *   loadE2eDotenv({ appUrlEnvVar: 'HELLO_E2E_BASE_URL' }); // hello-e2e
- *   loadE2eDotenv();                                         // exbrain-e2e
+ *   loadE2eDotenv();
+ *   const baseURL = getBaseUrl('HELLO_E2E_BASE_URL', 'https://exbrain.onebox/hello');
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 
-export interface LoadE2eDotenvOptions {
-  /**
-   * If set and this env var has a non-empty value, its value overrides E2E_BASE_URL.
-   * Allows hello-e2e and exbrain-e2e to coexist in the same onebox/.env file
-   * using separate URL variables (e.g. 'HELLO_E2E_BASE_URL', 'EXBRAIN_E2E_BASE_URL').
-   */
-  appUrlEnvVar?: string;
-}
-
-export function loadE2eDotenv(opts?: LoadE2eDotenvOptions): void {
+/**
+ * Loads onebox/.env into process.env for local dev. No-op in CI.
+ * Does NOT patch or override any URL variables — each suite reads its own.
+ */
+export function loadE2eDotenv(): void {
   if (process.env.CI) {
-    return; // CI injects vars directly — no .env file expected.
+    return;
   }
 
   const oneboxEnv = path.join(process.cwd(), '..', 'onebox', '.env');
   if (fs.existsSync(oneboxEnv)) {
     dotenv.config({ path: oneboxEnv, override: true });
   }
-
-  // Apply app-specific URL override after loading .env
-  if (opts?.appUrlEnvVar) {
-    const appUrl = (process.env[opts.appUrlEnvVar] ?? '').trim();
-    if (appUrl) {
-      process.env.E2E_BASE_URL = appUrl;
-    }
-  }
 }
 
 /**
  * Returns the base URL for the app under test.
- * Reads E2E_BASE_URL (set by loadE2eDotenv) with a fallback default.
+ *
+ * @param envVar   The suite-specific env var (e.g. 'HELLO_E2E_BASE_URL').
+ * @param fallback Default when the env var is not set.
+ *
+ * Example:
+ *   getBaseUrl('HELLO_E2E_BASE_URL', 'https://exbrain.onebox/hello')
+ *   getBaseUrl('EXBRAIN_E2E_BASE_URL', 'https://exbrain.onebox/exbrain')
  */
-export function getBaseUrl(defaultUrl = 'https://exbrain.onebox'): string {
-  return (process.env.E2E_BASE_URL ?? defaultUrl).replace(/\/$/, '');
+export function getBaseUrl(envVar: string, fallback: string): string {
+  return ((process.env[envVar] ?? '') || fallback).replace(/\/$/, '');
 }
 
 /**
