@@ -14,7 +14,7 @@ import type { Locator } from '@playwright/test';
 export async function waitForLoadingToSettle(
   locator: Locator,
   {
-    visibleTimeout = 3000,
+    visibleTimeout = 300,
     hiddenTimeout = 15000,
   }: { visibleTimeout?: number; hiddenTimeout?: number } = {}
 ): Promise<void> {
