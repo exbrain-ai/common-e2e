@@ -11,3 +11,4 @@ export { loadE2eDotenv, getBaseUrl, getIgnoreHttpErrors } from './env/index.js';
 
 // Helpers
 export { waitForLoadingToSettle } from './helpers/loading.js';
+export { getAppAlert } from './helpers/alerts.js';
