@@ -43,7 +43,7 @@ async function clickContinueOrPrimaryAuth(page: Page): Promise<void> {
 async function isSinglePageLogin(page: Page): Promise<boolean> {
   const email = page.getByLabel(/email/i).first();
   const password = page.getByLabel(/password/i).first();
-  await email.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+  await email.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   const emailVisible = await email.isVisible();
   const passwordVisible = await password.isVisible();
   return emailVisible && passwordVisible;
@@ -60,12 +60,12 @@ async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<voi
  */
 async function loginAuth0IdentifierFirst(page: Page, creds: LoginCredentials): Promise<void> {
   const emailInput = page.locator(AUTH_EMAIL).first();
-  await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+  await emailInput.waitFor({ state: 'visible', timeout: 8000 });
   await emailInput.fill(creds.email);
   await clickContinueOrPrimaryAuth(page);
 
   const passwordInput = page.locator(AUTH_PASSWORD).first();
-  await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
+  await passwordInput.waitFor({ state: 'visible', timeout: 8000 });
   await passwordInput.fill(creds.password);
   await clickPrimaryAuthButton(page);
 }
@@ -84,7 +84,7 @@ export async function completeLoginOnCurrentPage(
   creds: LoginCredentials,
   options?: { timeout?: number; successUrl?: RegExp }
 ): Promise<void> {
-  const timeout = options?.timeout ?? 15000;
+  const timeout = options?.timeout ?? 10000;
   const successUrl = options?.successUrl ?? DEFAULT_SUCCESS_URL;
 
   // Intentionally NOT awaiting 'networkidle' — Auth0 keeps background requests (analytics, device
@@ -119,7 +119,7 @@ export async function completeLoginOnCurrentPage(
  * @param page - Playwright page
  * @param baseUrl - App base URL (e.g. https://exbrain.onebox/hello), no trailing slash
  * @param creds - Email and password
- * @param options.timeout - Max ms to wait for redirect after submit (default 15000)
+ * @param options.timeout - Max ms to wait for redirect after submit (default 10000)
  * @param options.successUrl - Regex to match post-login URL; defaults to `/hello`. Override per app
  *   (e.g. exbrain passes `/\/exbrain(\/|\?|$)/`).
  */
@@ -129,7 +129,7 @@ export async function loginAsTestUser(
   creds: LoginCredentials,
   options?: { timeout?: number; successUrl?: RegExp }
 ): Promise<void> {
-  const timeout = options?.timeout ?? 15000;
+  const timeout = options?.timeout ?? 10000;
   const navigationTimeout = 30000;
   await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
 
