@@ -12,5 +12,9 @@ export { loadE2eDotenv, getBaseUrl, getIgnoreHttpErrors } from './env/index.js';
 // Helpers
 export { waitForLoadingToSettle } from './helpers/loading.js';
 export { getAppAlert } from './helpers/alerts.js';
+export {
+  submitHelloGreetingViaForm,
+  type SubmitHelloGreetingViaFormOptions,
+} from './helpers/hello-greeting-form.js';
 // Verbose logger (gated on E2E_VERBOSE=1)
 export { createVerboseLogger } from './helpers/verbose-logger.js';
