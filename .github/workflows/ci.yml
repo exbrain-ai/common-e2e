@@ -1,0 +1,82 @@
+# common-e2e CI: TypeScript type checking + security scans.
+#
+# common-e2e is a shared Playwright utility library (no build step, no test runner of its own).
+# Wave 1: typecheck (if code_changed).
+# Security (always): gitleaks, trivy.
+# Summary: all-checks (if: always()).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - '.github/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+  gitleaks:
+    name: Secret Scan
+    uses: exbrain-ai/common-go/.github/workflows/gitleaks.yml@main
+
+  trivy:
+    name: Trivy FS Scan
+    uses: exbrain-ai/common-go/.github/workflows/trivy.yml@main
+
+  all-checks:
+    name: All Checks Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    needs:
+      - typecheck
+      - gitleaks
+      - trivy
+    if: always()
+    steps:
+      - name: Evaluate results
+        run: |
+          FAILED=()
+          check() { if [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; then FAILED+=("$2"); fi; }
+
+          check "${{ needs.typecheck.result }}" "TypeScript Type Check"
+          check "${{ needs.gitleaks.result }}"  "Secret Scan"
+          check "${{ needs.trivy.result }}"     "Trivy FS Scan"
+
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo "❌ Failed checks: ${FAILED[*]}"
+            exit 1
+          fi
+
+          echo "✅ All required checks passed"
