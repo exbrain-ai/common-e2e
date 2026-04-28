@@ -82,9 +82,15 @@ const DEFAULT_SUCCESS_URL = /\/hello\/?(\?.*)?$/;
 export async function completeLoginOnCurrentPage(
   page: Page,
   creds: LoginCredentials,
-  options?: { timeout?: number; successUrl?: RegExp }
+  options?: {
+    timeout?: number;
+    successUrl?: RegExp;
+    /** Passed to `waitForURL` (default `domcontentloaded`). `load` often never settles on Auth0/Next due to long-lived requests. */
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit';
+  },
 ): Promise<void> {
   const timeout = options?.timeout ?? 10000;
+  const waitUntil = options?.waitUntil ?? 'domcontentloaded';
   const successUrl = options?.successUrl ?? DEFAULT_SUCCESS_URL;
 
   // Intentionally NOT awaiting 'networkidle' — Auth0 keeps background requests (analytics, device
@@ -108,7 +114,7 @@ export async function completeLoginOnCurrentPage(
     await loginAuth0IdentifierFirst(page, creds);
   }
 
-  await page.waitForURL(successUrl, { timeout });
+  await page.waitForURL(successUrl, { timeout, waitUntil });
 }
 
 /**
@@ -127,11 +133,19 @@ export async function loginAsTestUser(
   page: Page,
   baseUrl: string,
   creds: LoginCredentials,
-  options?: { timeout?: number; successUrl?: RegExp }
+  options?: {
+    timeout?: number;
+    successUrl?: RegExp;
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' | 'commit';
+  },
 ): Promise<void> {
   const timeout = options?.timeout ?? 10000;
   const navigationTimeout = 30000;
   await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
 
-  await completeLoginOnCurrentPage(page, creds, { timeout, successUrl: options?.successUrl });
+  await completeLoginOnCurrentPage(page, creds, {
+    timeout,
+    successUrl: options?.successUrl,
+    waitUntil: options?.waitUntil,
+  });
 }
