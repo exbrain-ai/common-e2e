@@ -52,6 +52,39 @@ async function isSinglePageLogin(page: Page): Promise<boolean> {
   return emailVisible && passwordVisible;
 }
 
+/**
+ * Defensive fill helper. `fill()` is documented to focus → clear → type → fire input events,
+ * but in practice we've observed cases on Auth0's universal-login page where a `fill()` call
+ * concatenates onto a previously-typed value rather than replacing it (visible in failure
+ * screenshots: email field shows "user@example.comPASSWORD" with password field left empty —
+ * features#488 spec 13 reproduction). Suspected root cause is a render race between the prior
+ * keystrokes settling and the next `fill()` clearing.
+ *
+ * This wrapper makes the fill bullet-proof:
+ * - Explicit `clear()` first (waits for element actionability).
+ * - `fill(value)` after clear.
+ * - Read back `inputValue()` and assert it matches; if not, retry once via `pressSequentially`
+ *   (which types char-by-char and is deterministic even when fill races a render).
+ *
+ * Throws a descriptive error if the value still doesn't stick after the retry.
+ */
+async function fillReliably(input: ReturnType<Page['locator']>, value: string, fieldHint: string): Promise<void> {
+  await input.clear();
+  await input.fill(value);
+  let actual = await input.inputValue();
+  if (actual === value) return;
+  // Retry: clear and pressSequentially. Char-by-char typing avoids the fill→render race.
+  await input.clear();
+  await input.pressSequentially(value);
+  actual = await input.inputValue();
+  if (actual === value) return;
+  throw new Error(
+    `[auth-login] ${fieldHint} field did not accept value after fill+pressSequentially. ` +
+      `Expected "${value.slice(0, 16)}…" got "${actual.slice(0, 32)}…". ` +
+      `This is the features#488 spec-13-style fill race; selector may be matching the wrong element.`,
+  );
+}
+
 async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<void> {
   // Use attribute-based selectors (same as loginAuth0IdentifierFirst) to avoid getByLabel
   // matching the wrong element when both fields are on screen. getByLabel resolution can
@@ -61,8 +94,8 @@ async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<voi
   const passwordInput = page.locator(AUTH_PASSWORD).first();
   await emailInput.waitFor({ state: 'visible', timeout: 5000 });
   await passwordInput.waitFor({ state: 'visible', timeout: 5000 });
-  await emailInput.fill(creds.email);
-  await passwordInput.fill(creds.password);
+  await fillReliably(emailInput, creds.email, 'email');
+  await fillReliably(passwordInput, creds.password, 'password');
   await clickPrimaryAuthButton(page);
 }
 
@@ -72,12 +105,12 @@ async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<voi
 async function loginAuth0IdentifierFirst(page: Page, creds: LoginCredentials): Promise<void> {
   const emailInput = page.locator(AUTH_EMAIL).first();
   await emailInput.waitFor({ state: 'visible', timeout: 8000 });
-  await emailInput.fill(creds.email);
+  await fillReliably(emailInput, creds.email, 'email');
   await clickContinueOrPrimaryAuth(page);
 
   const passwordInput = page.locator(AUTH_PASSWORD).first();
   await passwordInput.waitFor({ state: 'visible', timeout: 8000 });
-  await passwordInput.fill(creds.password);
+  await fillReliably(passwordInput, creds.password, 'password');
   await clickPrimaryAuthButton(page);
 }
 
