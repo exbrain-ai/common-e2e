@@ -20,6 +20,34 @@ const AUTH_EMAIL =
   'input[name="username"], input[name="email"], #username, #email';
 const AUTH_PASSWORD = 'input[name="password"], #password';
 
+/**
+ * Auth0 brute-force protection alert text (universal-login template). Shown inline as a
+ * `role="alert"` paragraph on either the email or password step once Auth0's per-user
+ * threshold trips. Without explicit detection, the spec sees a generic 30s `waitForURL`
+ * timeout downstream because login submit silently no-ops; this guard surfaces the real
+ * cause immediately so the failure points at Auth0 rate-limiting (which clears on a timer)
+ * rather than a phantom navigation issue.
+ */
+const AUTH0_RATE_LIMIT_TEXT = /too many login attempts/i;
+
+/**
+ * Throws a descriptive error if Auth0's brute-force-protection alert is present.
+ * Cheap (100ms isVisible probe) — call between auth steps to fail fast instead of waiting
+ * for a 30s `waitForURL` timeout that hides the real cause.
+ */
+async function throwIfAuth0RateLimited(page: Page, stage: string): Promise<void> {
+  const alert = page.getByRole('alert').filter({ hasText: AUTH0_RATE_LIMIT_TEXT }).first();
+  const visible = await alert.isVisible({ timeout: 100 }).catch(() => false);
+  if (!visible) return;
+  const msg = (await alert.innerText().catch(() => '')).trim();
+  throw new Error(
+    `[auth-login] Auth0 brute-force protection tripped at ${stage} step. ` +
+      `Alert: "${msg}". This usually clears on a timer (~15 min). ` +
+      `Reduce login churn — verify storage-state caching is reused across tests so each user ` +
+      `does at most one full Auth0 round-trip per run (typically in globalSetup).`,
+  );
+}
+
 async function clickPrimaryAuthButton(page: Page): Promise<void> {
   await page.getByRole('button', { name: AUTH_PRIMARY_BUTTON }).first().click();
 }
@@ -94,6 +122,7 @@ async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<voi
   const passwordInput = page.locator(AUTH_PASSWORD).first();
   await emailInput.waitFor({ state: 'visible', timeout: 5000 });
   await passwordInput.waitFor({ state: 'visible', timeout: 5000 });
+  await throwIfAuth0RateLimited(page, 'single-page-pre-submit');
   await fillReliably(emailInput, creds.email, 'email');
   await fillReliably(passwordInput, creds.password, 'password');
   await clickPrimaryAuthButton(page);
@@ -101,15 +130,22 @@ async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<voi
 
 /**
  * Auth0 identifier-first: email screen → password screen → submit.
+ *
+ * Brute-force-protection check runs on the password step (after email submit) — that's the
+ * earliest moment Auth0 surfaces the "Too many login attempts" alert in identifier-first flow.
+ * Fast-fail here turns a downstream 30s `waitForURL` timeout into an immediate, descriptive
+ * error pointing at Auth0 rate-limiting.
  */
 async function loginAuth0IdentifierFirst(page: Page, creds: LoginCredentials): Promise<void> {
   const emailInput = page.locator(AUTH_EMAIL).first();
   await emailInput.waitFor({ state: 'visible', timeout: 8000 });
+  await throwIfAuth0RateLimited(page, 'identifier-first-email');
   await fillReliably(emailInput, creds.email, 'email');
   await clickContinueOrPrimaryAuth(page);
 
   const passwordInput = page.locator(AUTH_PASSWORD).first();
   await passwordInput.waitFor({ state: 'visible', timeout: 8000 });
+  await throwIfAuth0RateLimited(page, 'identifier-first-password');
   await fillReliably(passwordInput, creds.password, 'password');
   await clickPrimaryAuthButton(page);
 }
