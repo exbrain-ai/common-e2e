@@ -41,8 +41,11 @@ async function clickContinueOrPrimaryAuth(page: Page): Promise<void> {
  * True when both email and password fields are visible (one-screen login: in-app or Auth0).
  */
 async function isSinglePageLogin(page: Page): Promise<boolean> {
-  const email = page.getByLabel(/email/i).first();
-  const password = page.getByLabel(/password/i).first();
+  // Use the same attribute-based selectors as loginSinglePage/loginAuth0IdentifierFirst so
+  // detection and filling are consistent — mismatched selectors risk finding the right element
+  // for detection but the wrong one for filling.
+  const email = page.locator(AUTH_EMAIL).first();
+  const password = page.locator(AUTH_PASSWORD).first();
   await email.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   const emailVisible = await email.isVisible();
   const passwordVisible = await password.isVisible();
@@ -50,8 +53,16 @@ async function isSinglePageLogin(page: Page): Promise<boolean> {
 }
 
 async function loginSinglePage(page: Page, creds: LoginCredentials): Promise<void> {
-  await page.getByLabel(/email/i).first().fill(creds.email);
-  await page.getByLabel(/password/i).first().fill(creds.password);
+  // Use attribute-based selectors (same as loginAuth0IdentifierFirst) to avoid getByLabel
+  // matching the wrong element when both fields are on screen. getByLabel resolution can
+  // pick the wrong target on some Auth0/custom pages, causing the password to be typed into
+  // the email field instead (observed: email shows email+password concat, password left empty).
+  const emailInput = page.locator(AUTH_EMAIL).first();
+  const passwordInput = page.locator(AUTH_PASSWORD).first();
+  await emailInput.waitFor({ state: 'visible', timeout: 5000 });
+  await passwordInput.waitFor({ state: 'visible', timeout: 5000 });
+  await emailInput.fill(creds.email);
+  await passwordInput.fill(creds.password);
   await clickPrimaryAuthButton(page);
 }
 
