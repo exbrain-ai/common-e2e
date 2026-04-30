@@ -1,0 +1,2 @@
+# Per-environment CSV emitted by deploy/terraform (auth0-managed-test-users) or copied from Key Vault — never commit.
+*.csv
