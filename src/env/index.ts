@@ -29,6 +29,16 @@ export function loadE2eDotenv(): void {
   if (fs.existsSync(oneboxEnv)) {
     dotenv.config({ path: oneboxEnv, override: true });
   }
+
+  // Suite-local generated env file (e.g. exbrain-e2e/.e2e-brainsec-ids.env from
+  // scripts/seed-brain-security-test-data.sh). Without this, running
+  // `playwright test` directly — instead of the npm script that sources the file
+  // first — leaves E2E_BRAINSEC_*_BRAIN_ID unset and 99-brain-security-bootstrap
+  // fails with "missing env vars from seed script".
+  const brainsecEnv = path.join(process.cwd(), '.e2e-brainsec-ids.env');
+  if (fs.existsSync(brainsecEnv)) {
+    dotenv.config({ path: brainsecEnv, override: true });
+  }
 }
 
 /**
