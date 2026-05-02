@@ -1,3 +1,8 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+.DS_Store
+
+# Local test user CSVs (e.g. auth0-managed-test-users / Key Vault) — never commit.
+testusers/
